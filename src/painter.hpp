@@ -17,9 +17,11 @@ class Painter {
 public:
   Mat oImg_;
   Mat pImg_;
+  Mat pImgDFT_;
+  Mat pImgHist_;
   Mat result_;
-  Genome genome_;
   double fitness_;
+  Genome genome_;
 
   Painter(const Mat& oImg, const Mat& pImg);
   Painter();

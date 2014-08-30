@@ -18,12 +18,12 @@ double fRand(double fMin, double fMax) {
 
 GeneticLayout make_default_genetic_layout() {
 	return {
-			0.05,// mutationRate
+			0.2,// mutationRate
 			0.7, // crossoverRate
 			1,   // crossoverIterations
 			0.3, // maxPertubation
 			4,   // numElite
-			1,   // numEliteCopies
+			2,   // numEliteCopies
 			false// usePerfDesc_
 	};
 }
@@ -172,7 +172,7 @@ Population GeneticPool::epoch(Population& old_pop) {
 	calculateStatistics(old_pop);
 
   if (!(layout_.numEliteCopies_ * (layout_.numElite_ % 2))) {
-  //  copyNBest(layout_.numElite_, layout_.numEliteCopies_, old_pop, new_pop);
+    copyNBest(layout_.numElite_, layout_.numEliteCopies_, old_pop, new_pop);
   }
 
 	//now we enter the GA loop

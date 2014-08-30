@@ -21,9 +21,32 @@ public:
   Genome(size_t size) : vector<Chromosome>() {
     for(size_t i = 0; i < size; ++i) {
       Chromosome c;
-      c.init(122);
+      c.init(11);
       this->push_back(c);
     }
+  }
+
+  size_t countActiveChromosomes() {
+    size_t cnt = 0;
+    for(Chromosome& c : (*this)) {
+      cnt += c.isActive() ? 1 : 0;
+    }
+    return cnt;
+  }
+
+  size_t findDominantChromosome() {
+    double max = -1;
+    size_t dominant = 0;
+    size_t i = 0;
+
+    for(Chromosome& c : (*this)) {
+      if(c[0] > max) {
+        max = c[0];
+        dominant = i;
+      }
+      ++i;
+    }
+    return dominant;
   }
 
   virtual ~Genome() {

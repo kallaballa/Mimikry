@@ -3,8 +3,6 @@
 
 #include <vector>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <boost/random.hpp>
-#include <boost/generator_iterator.hpp>
 #include "error.hpp"
 
 namespace mimikry {
@@ -25,6 +23,8 @@ public:
   bool isActive();
   size_t getKernelSize();
   Mat makeKernel();
+
+  size_t maxKernelSize_ = 0;
 };
 } /* namespace mimikry */
 

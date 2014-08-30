@@ -1,6 +1,6 @@
 CXX      := g++
-CXXFLAGS := -pthread -fno-strict-aliasing -std=c++0x -pedantic -Wall
-LDFLAGS  := -L/opt/local/lib -L../fann/src/
+CXXFLAGS := -fopenmp -pthread -fno-strict-aliasing -std=c++0x -pedantic -Wall
+LDFLAGS  := -fopenmp -L/opt/local/lib -L../fann/src/
 LIBS     := -lm -lopencv_core -lopencv_highgui -lopencv_imgproc -lX11 -lpthread
 .PHONY: all release debian-release info debug clean debian-clean distclean 
 DESTDIR := /

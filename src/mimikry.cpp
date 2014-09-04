@@ -238,6 +238,9 @@ namespace mimikry {
         normalize(p.resultDFT_, p.resultDFT_, 0, 255, CV_MINMAX);
         p.resultDFT_.convertTo(p.resultDFT_, CV_8U);
         imwrite(ssname.str() + "_dft.png",p.resultDFT_);
+
+        Mat binRDFT = p.resultDFT_ > 127;
+        imwrite(ssname.str() + "_bdft.png",binRDFT);
         std::cerr << "fitness: " << (std::to_string(p.fitness_) + " ( " + std::to_string(p.histError_) + " * " + std::to_string(p.pixelError_) + " * " + std::to_string(p.fftError_) + " )\t" + std::to_string(p.genome_.countActiveChromosomes()) + "/" + std::to_string(p.genome_.getTotalKernelSize()) + "\t" + ssname.str() + "\t");
 
         for(const Chromosome& c: p.genome_) {

@@ -82,13 +82,31 @@ double compareHistorgramGray(const Mat& one, const Mat& two) {
 }
 
 double compareFloat(const Mat& one, const Mat& two) {
-  double result = 0;
-  for (int row = 0; row < one.rows; ++row) {
-    for (int col = 0; col < one.cols; ++col) {
-      result += 1.0 - fabs(one.at<float>(row, col) - two.at<float>(row, col));
-    }
-  }
-  return result / (one.rows * one.cols);
+  Scalar oMean;
+  Scalar tMean;
+  Scalar oSdv;
+  Scalar tSdv;
+
+  meanStdDev(one, oMean, oSdv);
+  meanStdDev(two, tMean, tSdv);
+
+  double mean = fabs(oMean.val[0] - tMean.val[0]);
+  double sdv = fabs(oSdv.val[0] - tSdv.val[0]);
+
+  return 1.0 - ((mean + sdv) / 2.0);
+}
+
+double compareFloatBinarize(const Mat& one, const Mat& two) {
+  Mat oNorm = one > 0.5;
+  Mat tNorm = two > 0.5;
+
+  Scalar oMean;
+  Scalar tMean;
+  Scalar oSdv;
+  Scalar tSdv;
+
+  double count = count_diff_pixels(oNorm, tNorm);
+  return 1.0 - (count / (one.rows * one.cols));
 }
 
 Mat makeDFT(const Mat& IRGB) {
@@ -164,11 +182,13 @@ Painter::Painter(const Mat& oImg, const Mat& pImg) :
     pixelError_(0),
     histError_(0),
     fftError_(0),
-    genome_(3) {
+    genome_(10) {
   Mat savePDFT;
   normalize(pImgDFT_, savePDFT, 0, 255, CV_MINMAX);
   savePDFT.convertTo(savePDFT, CV_8U);
   imwrite("targetDFT.png",savePDFT);
+  Mat binRDFT = savePDFT > 127;
+  imwrite("targetBDFT.png",binRDFT);
 }
 
 Painter::Painter() :
@@ -206,7 +226,7 @@ void Painter::paint() {
     int ddepth = -1;
 
 
-    if(true || c.getOperation() == PASS) {
+    if(c.getOperation() == PASS) {
       filter2D(result_.clone(), result_, ddepth, kernel, anchor, delta, BORDER_DEFAULT);
     } else {
       Mat after;
@@ -231,25 +251,49 @@ void Painter::paint() {
 
   double pixError = 0;
 
+/*
   Mat rNorm;
   Mat pNorm;
   normalize(result_, rNorm, 0, 255, CV_MINMAX);
   normalize(pImg_, pNorm, 0, 255, CV_MINMAX);
+*/
 
-  for (int row = 0; row < rNorm.rows; ++row) {
+  Scalar rMean;
+  Scalar pMean;
+  Scalar rSdv;
+  Scalar pSdv;
+
+  meanStdDev(result_, rMean, rSdv);
+  meanStdDev(pImg_, pMean, pSdv);
+
+  double mean = (fabs(rMean.val[0] - pMean.val[0]) / 255.0
+      + fabs(rMean.val[1] - pMean.val[1]) / 255.0
+      + fabs(rMean.val[2] - pMean.val[2]) / 255.0)
+          / 3.0;
+
+  double sdv = (fabs(rSdv.val[0] - pSdv.val[0]) / 255.0
+      + fabs(rSdv.val[1] - pSdv.val[1]) / 255.0
+      + fabs(rSdv.val[2] - pSdv.val[2]) / 255.0)
+          / 3.0;
+
+  ///std::cerr << "mean: " << mean << "sdv: " << sdv << std::endl;
+
+  pixError = 1-0 - ((mean + sdv) / 2.0);
+  /*for (int row = 0; row < rNorm.rows; ++row) {
     uchar* pr = rNorm.ptr(row);
     uchar* pp = pNorm.ptr(row);
     for (int col = 0; col < rNorm.cols * 3; ++col) {
       pixError += 1.0 - (abs((*pp++) - (*pr++)) / 255.0);
     }
-  }
+  }*/
 
-  pixelError_ = pixError / (result_.rows * result_.cols * 3);
+  pixelError_ = pixError ;// / (result_.rows * result_.cols * 3);
  // histError_ = cv::compareHist(makeHistogramGray(result_), pImgHist_, CV_COMP_INTERSECT) / (result_.rows * result_.cols) ;
   resultDFT_ = makeDFT(result_);
   fftError_ = compareFloat(resultDFT_, pImgDFT_);
+  histError_ = compareFloatBinarize(resultDFT_, pImgDFT_);
   //(((double)(pImg_.rows * pImg_.cols) - count_diff_pixels(makeFFT(result_), pImgDFT_)) / ((double)pImg_.rows * pImg_.cols));
-  fitness_ =  pixelError_ * fftError_;
+  fitness_ =  histError_ * pixelError_ * fftError_;
 }
 } /* namespace mimikry */
 

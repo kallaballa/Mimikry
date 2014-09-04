@@ -9,6 +9,11 @@ namespace mimikry {
 
 using namespace cv;
 using std::vector;
+enum Operation {
+  PASS,
+  ADD,
+  SUBSTRACT,
+};
 
 class Chromosome : public vector<double> {
 public:
@@ -20,9 +25,10 @@ public:
 
   void init(size_t size);
   void check();
-  bool isActive();
-  size_t getKernelSize();
-  Mat makeKernel();
+  bool isActive() const ;
+  size_t getKernelSize() const;
+  Operation getOperation() const;
+  Mat makeKernel() const;
 
   size_t maxKernelSize_ = 0;
 };

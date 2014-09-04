@@ -21,7 +21,7 @@ public:
   Genome(size_t size) : vector<Chromosome>() {
     for(size_t i = 0; i < size; ++i) {
       Chromosome c;
-      c.init(11);
+      c.init(20);
       this->push_back(c);
     }
   }
@@ -32,6 +32,14 @@ public:
       cnt += c.isActive() ? 1 : 0;
     }
     return cnt;
+  }
+
+  size_t getTotalKernelSize() {
+    size_t total = 0;
+    for(Chromosome& c : (*this)) {
+      total += c.isActive() ? c.getKernelSize()  : 0;
+    }
+    return total;
   }
 
   size_t findDominantChromosome() {

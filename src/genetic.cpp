@@ -18,10 +18,10 @@ double fRand(double fMin, double fMax) {
 
 GeneticLayout make_default_genetic_layout() {
 	return {
-			0.2,// mutationRate
+			0.5,// mutationRate
 			0.7, // crossoverRate
 			1,   // crossoverIterations
-			0.3, // maxPertubation
+			0.3,   // maxPertubation
 			4,   // numElite
 			2,   // numEliteCopies
 			false// usePerfDesc_
@@ -64,7 +64,8 @@ void GeneticPool::mutate(Genome& genome) {
 Painter& GeneticPool::pickSpecimen(Population& pop) {
 	double totalFitness = 0;
 	for (size_t i = 0; i < pop.size(); ++i) {
-		totalFitness += pop[i].fitness_;
+	  CHECK(pop[i].fitness_ >= 0);
+	  totalFitness += pop[i].fitness_;
 	}
 
 	//generate a random number between 0 & total fitness count
@@ -103,7 +104,7 @@ std::pair<Painter, Painter> GeneticPool::crossover(Painter &mum, Painter &dad, s
 				wBaby2[i] = wDad[i];
 			}
 		} else {
-      size_t cp = iRand(0, wBaby1.size() - 1);
+      size_t cp = iRand(0, pow(wBaby1.getKernelSize(), 2) + 5 - 1);
 
       for (size_t j = 0; j < cp; ++j) {
           wBaby1[j] = wMum[j];

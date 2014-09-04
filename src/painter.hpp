@@ -20,7 +20,12 @@ public:
   Mat pImgDFT_;
   Mat pImgHist_;
   Mat result_;
+  Mat resultDFT_;
+
   double fitness_;
+  double pixelError_;
+  double histError_;
+  double fftError_;
   Genome genome_;
 
   Painter(const Mat& oImg, const Mat& pImg);

@@ -5,6 +5,12 @@
 
 namespace mimikry {
 
+int count_diff_pixels(cv::Mat in1, cv::Mat in2) {
+    cv::Mat diff;
+    cv::compare(in1, in2, diff, cv::CMP_NE);
+    return cv::countNonZero(diff);
+}
+
 Mat makeHistogram(const Mat& one) {
   bool uniform = true;
   bool accumulate = false;
@@ -19,6 +25,25 @@ Mat makeHistogram(const Mat& one) {
 
   cv::calcHist(&one, 1, channels, cv::Mat(), a1_hist, dims, sizes, ranges, uniform, accumulate);
 
+  return a1_hist;
+}
+
+Mat makeHistogramGray(const Mat& oneRGB) {
+  Mat one;
+  cvtColor(oneRGB, one, CV_RGB2GRAY);
+
+  bool uniform = true;
+  bool accumulate = false;
+  cv::Mat a1_hist, a2_hist;
+  int dims = 1;
+  const int sizes[] = { 255 };
+  const int channels[] = { 0 };
+  float gRange[] = { 0, 255 };
+  const float* ranges[] = { gRange };
+
+  cv::calcHist(&one, 1, channels, cv::Mat(), a1_hist, dims, sizes, ranges, uniform, accumulate);
+  //imshow("Histogray", a1_hist);
+  //waitKey(0);
   return a1_hist;
 }
 
@@ -63,10 +88,10 @@ double compareFloat(const Mat& one, const Mat& two) {
       result += 1.0 - fabs(one.at<float>(row, col) - two.at<float>(row, col));
     }
   }
-  return (result / (one.rows * one.cols));
+  return result / (one.rows * one.cols);
 }
 
-Mat makeFFT(const Mat& IRGB) {
+Mat makeDFT(const Mat& IRGB) {
   Mat I;
   cvtColor(IRGB, I, CV_RGB2GRAY);
   Mat padded;                            //expand input image to optimal size
@@ -111,25 +136,63 @@ Mat makeFFT(const Mat& IRGB) {
   tmp.copyTo(q2);
 
   normalize(magI, magI, 0, 1, CV_MINMAX);
-  //imshow( "Display window", magI);
-  //waitKey(0);
+/*
+  int lowThreshold = 100;
+  int ratio = 3;
+  int kernel_size = 3;
+
+  Mat detected_edges;
+  Mat gray;
+  Mat sharpened;
+  magI.convertTo(gray, CV_8U);
+
+  cv::GaussianBlur(gray, sharpened, cv::Size(0, 0), 3);
+  cv::addWeighted(gray, 1.5, sharpened, -0.5, 0, sharpened);
+  sharpened.convertTo(magI, CV_32F);*/
+
   return magI;
 }
 
 Painter::Painter(const Mat& oImg, const Mat& pImg) :
-    oImg_(oImg.clone()), pImg_(pImg.clone()), pImgDFT_(makeFFT(pImg_.clone())), pImgHist_(), result_(oImg.clone()), fitness_(0), genome_(10) {
+    oImg_(oImg.clone()),
+    pImg_(pImg.clone()),
+    pImgDFT_(makeDFT(pImg_.clone())),
+    pImgHist_(makeHistogramGray(pImg)),
+    result_(oImg.clone()),
+    resultDFT_(),
+    fitness_(0),
+    pixelError_(0),
+    histError_(0),
+    fftError_(0),
+    genome_(3) {
+  Mat savePDFT;
+  normalize(pImgDFT_, savePDFT, 0, 255, CV_MINMAX);
+  savePDFT.convertTo(savePDFT, CV_8U);
+  imwrite("targetDFT.png",savePDFT);
 }
 
 Painter::Painter() :
-    oImg_(), pImg_(), pImgDFT_(), pImgHist_(), result_(1, 1, 1, 1), fitness_(0), genome_(0) {
+    oImg_(),
+    pImg_(),
+    pImgDFT_(),
+    pImgHist_(),
+    result_(1, 1, 1, 1),
+    resultDFT_(),
+    fitness_(0),
+    pixelError_(0),
+    histError_(0),
+    fftError_(0),
+    genome_(0) {
 }
 
 void Painter::paint() {
   size_t dominant = 0;
   size_t numActive = genome_.countActiveChromosomes();
 
-  if(numActive == 0)
+  if (numActive == 0)
     dominant = genome_.findDominantChromosome();
+
+  result_ = oImg_.clone();
 
   for (size_t i = 0; i < genome_.size(); ++i) {
     Chromosome& c = genome_[i];
@@ -138,25 +201,55 @@ void Painter::paint() {
       continue;
 
     Mat kernel = c.makeKernel();
-    Point anchor(-1, 1);
+    Point anchor(-1, -1);
     double delta = 0;
     int ddepth = -1;
-    filter2D(result_.clone(), result_, ddepth, kernel, anchor, delta, BORDER_DEFAULT);
+
+
+    if(true || c.getOperation() == PASS) {
+      filter2D(result_.clone(), result_, ddepth, kernel, anchor, delta, BORDER_DEFAULT);
+    } else {
+      Mat after;
+      filter2D(oImg_.clone(), after, ddepth, kernel, anchor, delta, BORDER_DEFAULT);
+
+      switch (c.getOperation()) {
+      case PASS:
+        CHECK(false);
+        break;
+      case SUBSTRACT:
+        result_ = result_ - after;
+        break;
+      case ADD:
+        result_ = result_ + after;
+        break;
+      default:
+        CHECK(false);
+        break;
+      }
+    }
   }
-  /*
-   for(int row = 0; row < result_.rows; ++row) {
-   uchar* pr = result_.ptr(row);
-   uchar* pp = pImg_.ptr(row);
 
-   for(int col = 0; col < result_.cols*3; ++col) {
-   fitness_ += 1.0 - (abs((*pp++) - (*pr++)) / 255.0);
-   }
+  double pixError = 0;
 
-   }
-   fitness_ /= (pImg_.cols*pImg_.rows*3);
-   */
+  Mat rNorm;
+  Mat pNorm;
+  normalize(result_, rNorm, 0, 255, CV_MINMAX);
+  normalize(pImg_, pNorm, 0, 255, CV_MINMAX);
 
-  fitness_ += (cv::compareHist(makeHistogram(result_), makeHistogram(pImg_), CV_COMP_INTERSECT) * compareFloat(makeFFT(result_), pImgDFT_));
+  for (int row = 0; row < rNorm.rows; ++row) {
+    uchar* pr = rNorm.ptr(row);
+    uchar* pp = pNorm.ptr(row);
+    for (int col = 0; col < rNorm.cols * 3; ++col) {
+      pixError += 1.0 - (abs((*pp++) - (*pr++)) / 255.0);
+    }
+  }
+
+  pixelError_ = pixError / (result_.rows * result_.cols * 3);
+ // histError_ = cv::compareHist(makeHistogramGray(result_), pImgHist_, CV_COMP_INTERSECT) / (result_.rows * result_.cols) ;
+  resultDFT_ = makeDFT(result_);
+  fftError_ = compareFloat(resultDFT_, pImgDFT_);
+  //(((double)(pImg_.rows * pImg_.cols) - count_diff_pixels(makeFFT(result_), pImgDFT_)) / ((double)pImg_.rows * pImg_.cols));
+  fitness_ =  pixelError_ * fftError_;
 }
 } /* namespace mimikry */
 

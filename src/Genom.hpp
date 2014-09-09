@@ -26,12 +26,25 @@ public:
     }
   }
 
+  bool isDominantDriven() {
+    size_t cnt = 0;
+     for(Chromosome& c : (*this)) {
+       cnt += c.isActive() ? 1 : 0;
+     }
+
+     return cnt == 0;
+  }
+
   size_t countActiveChromosomes() {
     size_t cnt = 0;
     for(Chromosome& c : (*this)) {
       cnt += c.isActive() ? 1 : 0;
     }
-    return cnt;
+
+    if(cnt > 0)
+      return cnt;
+    else
+      return 1;
   }
 
   size_t getTotalKernelSize() {
@@ -39,7 +52,10 @@ public:
     for(Chromosome& c : (*this)) {
       total += c.isActive() ? c.getKernelSize()  : 0;
     }
-    return total;
+    if(total > 0)
+      return total;
+    else
+      return (*this)[findDominantChromosome()].getKernelSize();
   }
 
   size_t findDominantChromosome() {

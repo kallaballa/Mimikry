@@ -91,7 +91,7 @@ namespace mimikry {
     c.init(size);
     for(size_t x = 0; x < m.rows; ++x) {
       for(size_t y = 0; y < m.cols; ++y) {
-        c[5 + (x * m.cols) + y] = m.at<double>(x, y);
+        c[c.getKernelOffset() + (x * m.cols) + y] = m.at<double>(x, y);
       }
     }
 
@@ -206,6 +206,13 @@ namespace mimikry {
   void run(const string& original, const string& processed, size_t prePopulationSize, size_t populationSize, size_t iterations) {
     Mat oImg = imread( original.c_str());
     Mat pImg = imread( processed.c_str());
+    Mat pImgDFT = make_dft(pImg);
+    Mat savePDFT;
+    normalize(pImgDFT, savePDFT, 0, 255, CV_MINMAX);
+    savePDFT.convertTo(savePDFT, CV_8U);
+    imwrite("targetDFT.png",savePDFT);
+    Mat binRDFT = savePDFT > 127;
+    imwrite("targetBDFT.png",binRDFT);
 
     vector<Painter> population;
     GeneticLayout gl = make_default_genetic_layout();
@@ -232,20 +239,29 @@ namespace mimikry {
 
       for(size_t j = 0; j < population.size(); ++j) {
         Painter& p = population[j];
+
         stringstream ssname;
         ssname << "result/" << setfill('0') << setw(10) << i << "_" << setfill('0') << setw(5) << j;
+
         imwrite(ssname.str() + "_result.png",p.result_);
+
         normalize(p.resultDFT_, p.resultDFT_, 0, 255, CV_MINMAX);
         p.resultDFT_.convertTo(p.resultDFT_, CV_8U);
         imwrite(ssname.str() + "_dft.png",p.resultDFT_);
 
         Mat binRDFT = p.resultDFT_ > 127;
         imwrite(ssname.str() + "_bdft.png",binRDFT);
+
         std::cerr << "fitness: " << (std::to_string(p.fitness_) + " ( " + std::to_string(p.histError_) + " * " + std::to_string(p.pixelError_) + " * " + std::to_string(p.fftError_) + " )\t" + std::to_string(p.genome_.countActiveChromosomes()) + "/" + std::to_string(p.genome_.getTotalKernelSize()) + "\t" + ssname.str() + "\t");
 
-        for(const Chromosome& c: p.genome_) {
-          if(c.isActive())
-            std::cerr << " " << c.getOperation();
+        if(!p.genome_.isDominantDriven()) {
+          for(const Chromosome& c: p.genome_) {
+            if(c.isActive())
+              std::cerr << " " << c.getOperation() << "/" << c.getPrefilterIndex();
+          }
+        } else {
+          Chromosome& dominant = p.genome_[p.genome_.findDominantChromosome()];
+          std::cerr << " " << dominant.getOperation() << "/" << dominant.getPrefilterIndex();
         }
 
         std::cerr << std::endl;

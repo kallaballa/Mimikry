@@ -11,7 +11,7 @@ int count_diff_pixels(cv::Mat in1, cv::Mat in2) {
     return cv::countNonZero(diff);
 }
 
-Mat makeHistogram(const Mat& one) {
+Mat make_histogram(const Mat& one) {
   bool uniform = true;
   bool accumulate = false;
   cv::Mat a1_hist;
@@ -28,7 +28,7 @@ Mat makeHistogram(const Mat& one) {
   return a1_hist;
 }
 
-Mat makeHistogramGray(const Mat& oneRGB) {
+Mat make_histogram_gray(const Mat& oneRGB) {
   Mat one;
   cvtColor(oneRGB, one, CV_RGB2GRAY);
 
@@ -47,7 +47,7 @@ Mat makeHistogramGray(const Mat& oneRGB) {
   return a1_hist;
 }
 
-double compareHistorgram(const Mat& one, const Mat& two) {
+double compare_historgram(const Mat& one, const Mat& two) {
   bool uniform = true;
   bool accumulate = false;
   cv::Mat a1_hist, a2_hist;
@@ -65,7 +65,7 @@ double compareHistorgram(const Mat& one, const Mat& two) {
   return cv::compareHist(a1_hist, a2_hist, CV_COMP_INTERSECT) / 67200;
 }
 
-double compareHistorgramGray(const Mat& one, const Mat& two) {
+double compare_historgram_gray(const Mat& one, const Mat& two) {
   bool uniform = true;
   bool accumulate = false;
   cv::Mat a1_hist, a2_hist;
@@ -81,7 +81,7 @@ double compareHistorgramGray(const Mat& one, const Mat& two) {
   return cv::compareHist(a1_hist, a2_hist, CV_COMP_INTERSECT);
 }
 
-double compareFloat(const Mat& one, const Mat& two) {
+double compare_float(const Mat& one, const Mat& two) {
   Scalar oMean;
   Scalar tMean;
   Scalar oSdv;
@@ -96,7 +96,7 @@ double compareFloat(const Mat& one, const Mat& two) {
   return 1.0 - ((mean + sdv) / 2.0);
 }
 
-double compareFloatBinarize(const Mat& one, const Mat& two) {
+double compare_float_binarize(const Mat& one, const Mat& two) {
   Mat oNorm = one > 0.5;
   Mat tNorm = two > 0.5;
 
@@ -109,7 +109,7 @@ double compareFloatBinarize(const Mat& one, const Mat& two) {
   return 1.0 - (count / (one.rows * one.cols));
 }
 
-Mat makeDFT(const Mat& IRGB) {
+Mat make_dft(const Mat& IRGB) {
   Mat I;
   cvtColor(IRGB, I, CV_RGB2GRAY);
   Mat padded;                            //expand input image to optimal size
@@ -172,10 +172,10 @@ Mat makeDFT(const Mat& IRGB) {
 }
 
 Painter::Painter(const Mat& oImg, const Mat& pImg) :
-    oImg_(oImg.clone()),
-    pImg_(pImg.clone()),
-    pImgDFT_(makeDFT(pImg_.clone())),
-    pImgHist_(makeHistogramGray(pImg)),
+    oImg_(oImg),
+    pImg_(pImg),
+    pImgDFT_(make_dft(pImg)),
+    pImgHist_(),
     result_(oImg.clone()),
     resultDFT_(),
     fitness_(0),
@@ -183,12 +183,6 @@ Painter::Painter(const Mat& oImg, const Mat& pImg) :
     histError_(0),
     fftError_(0),
     genome_(10) {
-  Mat savePDFT;
-  normalize(pImgDFT_, savePDFT, 0, 255, CV_MINMAX);
-  savePDFT.convertTo(savePDFT, CV_8U);
-  imwrite("targetDFT.png",savePDFT);
-  Mat binRDFT = savePDFT > 127;
-  imwrite("targetBDFT.png",binRDFT);
 }
 
 Painter::Painter() :
@@ -251,20 +245,19 @@ void Painter::paint() {
 
   double pixError = 0;
 
-/*
+
   Mat rNorm;
   Mat pNorm;
   normalize(result_, rNorm, 0, 255, CV_MINMAX);
   normalize(pImg_, pNorm, 0, 255, CV_MINMAX);
-*/
 
   Scalar rMean;
   Scalar pMean;
   Scalar rSdv;
   Scalar pSdv;
 
-  meanStdDev(result_, rMean, rSdv);
-  meanStdDev(pImg_, pMean, pSdv);
+  meanStdDev(rNorm, rMean, rSdv);
+  meanStdDev(pNorm, pMean, pSdv);
 
   double mean = (fabs(rMean.val[0] - pMean.val[0]) / 255.0
       + fabs(rMean.val[1] - pMean.val[1]) / 255.0
@@ -289,11 +282,12 @@ void Painter::paint() {
 
   pixelError_ = pixError ;// / (result_.rows * result_.cols * 3);
  // histError_ = cv::compareHist(makeHistogramGray(result_), pImgHist_, CV_COMP_INTERSECT) / (result_.rows * result_.cols) ;
-  resultDFT_ = makeDFT(result_);
-  fftError_ = compareFloat(resultDFT_, pImgDFT_);
-  histError_ = compareFloatBinarize(resultDFT_, pImgDFT_);
+  resultDFT_ = make_dft(result_);
+  fftError_ = compare_float(resultDFT_, pImgDFT_);
+  histError_ = compare_float_binarize(resultDFT_, pImgDFT_);
   //(((double)(pImg_.rows * pImg_.cols) - count_diff_pixels(makeFFT(result_), pImgDFT_)) / ((double)pImg_.rows * pImg_.cols));
-  fitness_ =  histError_ * pixelError_ * fftError_;
+  fitness_ =  (histError_ * pixelError_ * fftError_);
+  fitness_ = (fitness_ / pow(std::exp(-fitness_),2)) / (1 / pow(std::exp(-1),2));
 }
 } /* namespace mimikry */
 

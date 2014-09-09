@@ -13,17 +13,21 @@ namespace mimikry {
     this->maxKernelSize_ = maxKernelSize;
 
     /*
-     * size is pow(maxKernelSize, 2) + 3 because
+     * size is pow(maxKernelSize, 2) + 6 because
      * we have the active gene, the kernel size gene,
      * the amplify gene and the values of the kernel
      */
-    for(size_t i = 0; i < pow(maxKernelSize, 2) + 5; ++i) {
+    for(size_t i = 0; i < pow(maxKernelSize, 2) + getKernelOffset(); ++i) {
       this->push_back(fRand2(-1,1));
     }
   }
 
+  size_t Chromosome::getKernelOffset() const {
+    return 6;
+  }
+
   bool Chromosome::isActive() const {
-    return (*this)[0] > 0;
+    return ((int)round((*this)[0])) % 2;
   }
 
   size_t Chromosome::getKernelSize() const {
@@ -39,17 +43,29 @@ namespace mimikry {
     return kernelSize;
   }
 
+  double Chromosome::getAmplify() const {
+    return (*this)[2];
+  }
+
+  double Chromosome::getSigma() const {
+    return (*this)[3] * 4;
+  }
+
   Operation Chromosome::getOperation() const {
-    int op = round((*this)[4]);
-    if(op <= -1)
+    int op = abs(((int)round((*this)[4])) % 3);
+    if(op == 0)
       return SUBSTRACT;
-    else if(op == 0)
+    else if(op == 1)
       return PASS;
-    else if(op >= 1)
+    else if(op == 2)
       return ADD;
 
     CHECK(false);
     return PASS;
+  }
+
+  size_t Chromosome::getPrefilterIndex() const {
+    return (abs(round((*this)[5] * 5))) % 4;
   }
 
   Mat Chromosome::makeKernel() const {
@@ -59,21 +75,40 @@ namespace mimikry {
     Mat kernel(kernelSize, kernelSize, CV_64F);
     for(size_t x = 0; x < kernelSize; ++x) {
       for(size_t y = 0; y < kernelSize; ++y) {
-        kernel.at<double>(x, y) = (*this)[2] * ((*this)[5 + (x * kernelSize) + y]) * 16;
+        kernel.at<double>(x, y) = getAmplify() * ((*this)[6 + (x * kernelSize) + y]) * 16;
         //kernel.at<double>(x, y) = ((*this)[3 + (x * kernelSize) + y]);
       }
     }
-    float sigma = (*this)[3] * 4;
-    if(sigma != 0) {
-      Mat blurred;
-      cv::GaussianBlur(kernel, blurred, cv::Size(0, 0), fabs(sigma));
+    float sigma = getSigma();
+    size_t preFilter = getPrefilterIndex();
+    Mat filtered;
+    int s ;
 
-      if(sigma < 0) {
-        cv::addWeighted(kernel, 1.5, blurred, -0.5, 0, blurred);
-      }
-
-      kernel = blurred;
+    switch(preFilter) {
+    case 0:
+      //no prefilter
+      break;
+    case 1: //blur
+      cv::GaussianBlur(kernel, filtered, cv::Size(0, 0), fabs(sigma));
+      kernel = filtered;
+      break;
+    case 2: //unsharp mask
+      cv::GaussianBlur(kernel, filtered, cv::Size(0, 0), fabs(sigma));
+      cv::addWeighted(kernel, 1.5, filtered, -0.5, 0, filtered);
+      kernel = filtered;
+      break;
+    case 3: //laplace
+      s = 2 + abs(((int)round(sigma)));
+      if((s % 2) == 0)
+        ++s;
+      Laplacian(kernel, filtered, -1, s);
+      kernel = filtered;
+      break;
+    default:
+      CHECK(false);
+      break;
     }
+
     return kernel;
   }
 }

@@ -22,7 +22,7 @@ GeneticLayout make_default_genetic_layout() {
 			0.7, // crossoverRate
 			1,   // crossoverIterations
 			0.3,   // maxPertubation
-			4,   // numElite
+			8,   // numElite
 			1,   // numEliteCopies
 			false// usePerfDesc_
 	};

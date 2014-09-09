@@ -16,6 +16,7 @@ enum Operation {
 };
 
 class Chromosome : public vector<double> {
+  size_t maxKernelSize_ = 0;
 public:
   Chromosome() {
   }
@@ -26,11 +27,13 @@ public:
   void init(size_t size);
   void check();
   bool isActive() const ;
+  size_t getKernelOffset() const;
   size_t getKernelSize() const;
+  double getAmplify() const;
+  double getSigma() const;
+  size_t getPrefilterIndex() const;
   Operation getOperation() const;
   Mat makeKernel() const;
-
-  size_t maxKernelSize_ = 0;
 };
 } /* namespace mimikry */
 

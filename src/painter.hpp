@@ -74,6 +74,8 @@ public:
 
 typedef vector<Painter> Population;
 
+Mat make_dft(const Mat& IRGB);
+
 } /* namespace mimikry */
 
 #endif /* PAINTER_HPP_ */
